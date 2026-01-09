@@ -22,7 +22,7 @@ spec:
     spec:
       containers:
         - name: mysql
-          image: registry.redhat.io/rhel8/mysql-80:latest
+          image: mysql:8.0
           ports:
             - containerPort: 3306
               name: mysql
@@ -38,11 +38,11 @@ spec:
                 name: mysql-credentials
           volumeMounts:
             - name: mysql-config
-              mountPath: /etc/my.cnf.d/custom.cnf
+              mountPath: /etc/mysql/conf.d/custom.cnf
               subPath: my.cnf
+            # Standard Docker MySQL init directory
             - name: mysql-init
-              mountPath: /docker-entrypoint-initdb.d/init.sql
-              subPath: init.sql
+              mountPath: /docker-entrypoint-initdb.d/
             - name: mysql-data
               mountPath: /var/lib/mysql
           resources:
@@ -64,15 +64,14 @@ spec:
           readinessProbe:
             exec:
               command:
-                - mysql
+                - mysqladmin
+                - ping
                 - -h
                 - localhost
                 - -u
                 - root
                 - -p$(MYSQL_ROOT_PASSWORD)
-                - -e
-                - "SELECT 1"
-            initialDelaySeconds: 5
+            initialDelaySeconds: 10
             periodSeconds: 5
       volumes:
         - name: mysql-config

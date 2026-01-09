@@ -17,10 +17,6 @@ data:
     gtid_mode=ON
     enforce_gtid_consistency=ON
   init.sql: |
-    -- Create the inventory database schema for Debezium demo
-    CREATE DATABASE IF NOT EXISTS inventory;
-    USE inventory;
-    
     -- Products table that we'll be syncing to PostgreSQL
     CREATE TABLE IF NOT EXISTS products (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -36,7 +32,7 @@ data:
     GRANT ALL PRIVILEGES ON inventory.* TO 'debezium'@'%';
     FLUSH PRIVILEGES;
     
-    -- Insert some initial data
+    -- Insert initial data
     INSERT INTO products (name, description, weight) VALUES
         ('Widget A', 'A fantastic widget', 1.5),
         ('Gadget B', 'An amazing gadget', 2.3),

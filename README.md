@@ -16,7 +16,7 @@ This project demonstrates a complete Change Data Capture (CDC) pipeline using Re
                                                 ┌─────────────────┐
                                                 │                 │
                                                 │  AMQ Streams    │
-                                                │    (Kafka)      │
+                                                │  (Kafka/KRaft)  │
                                                 │                 │
                                                 └─────────────────┘
 ```
@@ -26,74 +26,50 @@ This project demonstrates a complete Change Data Capture (CDC) pipeline using Re
 | Component | Description |
 |-----------|-------------|
 | **AMQ Streams Operator** | Red Hat's Kafka distribution based on Strimzi |
-| **Kafka Cluster** | 3-node Kafka cluster with Zookeeper |
+| **Kafka Cluster** | Kafka cluster using KRaft mode (no ZooKeeper) |
 | **MySQL** | Source database with binary logging enabled for CDC |
 | **PostgreSQL** | Target database receiving replicated data |
 | **Debezium MySQL Connector** | Captures changes from MySQL binlog |
-| **Camel JDBC Sink Connector** | Writes changes to PostgreSQL |
+| **JDBC Sink Connector** | Writes changes to PostgreSQL |
 | **Quarkus Data Producer** | Generates test data at configurable intervals |
 
 ## Prerequisites
 
-- OpenShift 4.12+ cluster
+- OpenShift 4.14+ cluster
 - `oc` CLI logged in with cluster-admin privileges
 - Access to Red Hat registry (`registry.redhat.io`)
 - OpenShift GitOps (ArgoCD) installed (for GitOps deployment)
 
-## Quick Start - Manual Deployment
+## Quick Start - Deploy with Kustomize Overlay
 
-### 1. Create the namespace and install AMQ Streams operator
+The recommended way to deploy is using environment-specific overlays:
 
-```bash
-# Apply operator resources
-oc apply -k base/operator
-
-# Wait for the operator to be ready
-oc wait --for=condition=Ready pod -l name=amq-streams-cluster-operator -n amq-streams-cdc --timeout=300s
-```
-
-### 2. Deploy the Kafka cluster
+### Deploy Dev Environment
 
 ```bash
-# Apply Kafka resources
-oc apply -k base/kafka
+# Deploy everything in one command
+oc apply -k overlays/dev
+
+# Wait for the operator to install
+oc wait --for=condition=AtLatestKnown subscription/dev-amq-streams -n amq-streams-cdc-dev --timeout=300s
 
 # Wait for Kafka to be ready
-oc wait kafka/cdc-cluster --for=condition=Ready -n amq-streams-cdc --timeout=600s
+oc wait kafka/dev-cdc-cluster --for=condition=Ready -n amq-streams-cdc-dev --timeout=600s
+
+# Wait for KafkaConnect to be ready
+oc wait kafkaconnect/dev-cdc-connect-cluster --for=condition=Ready -n amq-streams-cdc-dev --timeout=600s
+
+# Trigger the data producer build
+oc start-build dev-data-producer -n amq-streams-cdc-dev --follow
 ```
 
-### 3. Deploy the databases
+### Deploy Prod Environment
 
 ```bash
-# Apply database resources
-oc apply -k base/databases
+# Deploy everything
+oc apply -k overlays/prod
 
-# Wait for databases to be ready
-oc wait --for=condition=Available deployment/mysql -n amq-streams-cdc --timeout=300s
-oc wait --for=condition=Available deployment/postgres -n amq-streams-cdc --timeout=300s
-```
-
-### 4. Deploy Kafka Connect with connectors
-
-```bash
-# Apply Kafka Connect resources
-oc apply -k base/kafka-connect
-
-# Wait for Kafka Connect to be ready
-oc wait kafkaconnect/cdc-connect-cluster --for=condition=Ready -n amq-streams-cdc --timeout=600s
-```
-
-### 5. Build and deploy the Quarkus data producer
-
-```bash
-# Apply data producer resources
-oc apply -k base/data-producer
-
-# Start the build
-oc start-build data-producer -n amq-streams-cdc --follow
-
-# Wait for deployment
-oc wait --for=condition=Available deployment/data-producer -n amq-streams-cdc --timeout=300s
+# Follow similar wait commands with prod namespace and resource names
 ```
 
 ## GitOps Deployment with ArgoCD
@@ -137,36 +113,38 @@ Supported formats:
 ### Environment-Specific Overrides
 
 #### Development (`overlays/dev`)
-- Single Kafka replica
+- Single Kafka/KRaft replica
 - 30-second data generation interval
 - Ephemeral storage
+- Resource names prefixed with `dev-`
+- Namespace: `amq-streams-cdc-dev`
 
 #### Production (`overlays/prod`)
 - 3 Kafka replicas
 - 60-second data generation interval
-- Persistent storage (50GB Kafka, 10GB databases)
+- Persistent storage (1GB PVCs for POC)
 
 ## Verifying the Pipeline
 
 ### 1. Check connector status
 
 ```bash
-# Check MySQL source connector
-oc get kafkaconnector mysql-source-connector -n amq-streams-cdc -o yaml
+# Check MySQL source connector (dev environment)
+oc get kafkaconnector dev-mysql-source-connector -n amq-streams-cdc-dev
 
 # Check PostgreSQL sink connector
-oc get kafkaconnector postgres-sink-connector -n amq-streams-cdc -o yaml
+oc get kafkaconnector dev-postgres-sink-connector -n amq-streams-cdc-dev
 ```
 
 ### 2. View Kafka topics
 
 ```bash
-# List topics
-oc exec -it cdc-cluster-kafka-0 -n amq-streams-cdc -- \
+# List topics (dev environment)
+oc exec -it dev-cdc-cluster-dev-combined-0 -n amq-streams-cdc-dev -- \
   bin/kafka-topics.sh --bootstrap-server localhost:9092 --list
 
 # View messages in the CDC topic
-oc exec -it cdc-cluster-kafka-0 -n amq-streams-cdc -- \
+oc exec -it dev-cdc-cluster-dev-combined-0 -n amq-streams-cdc-dev -- \
   bin/kafka-console-consumer.sh \
     --bootstrap-server localhost:9092 \
     --topic dbserver1.inventory.products \
@@ -177,20 +155,23 @@ oc exec -it cdc-cluster-kafka-0 -n amq-streams-cdc -- \
 ### 3. Query the databases
 
 ```bash
-# Check MySQL source
-oc exec -it deployment/mysql -n amq-streams-cdc -- \
+# Check MySQL source (dev environment)
+oc exec -it deployment/dev-mysql -n amq-streams-cdc-dev -- \
   mysql -u debezium -pdbz inventory -e "SELECT * FROM products;"
 
 # Check PostgreSQL target
-oc exec -it deployment/postgres -n amq-streams-cdc -- \
+oc exec -it deployment/dev-postgres -n amq-streams-cdc-dev -- \
   psql -U postgres -d inventory -c "SELECT * FROM products;"
 ```
 
 ### 4. Check data producer status
 
 ```bash
-# Get the route
-ROUTE=$(oc get route data-producer -n amq-streams-cdc -o jsonpath='{.spec.host}')
+# Get the route (dev environment)
+ROUTE=$(oc get route dev-data-producer -n amq-streams-cdc-dev -o jsonpath='{.spec.host}')
+
+# Check health
+curl -k https://$ROUTE/health
 
 # Check status
 curl -k https://$ROUTE/api/producer/status
@@ -210,38 +191,14 @@ amq-streams-cdc-demo/
 ├── base/
 │   ├── kustomization.yaml
 │   ├── operator/               # AMQ Streams Operator
-│   │   ├── kustomization.yaml
-│   │   ├── namespace.yaml
-│   │   ├── operatorgroup.yaml
-│   │   └── subscription.yaml
-│   ├── kafka/                  # Kafka Cluster
-│   │   ├── kustomization.yaml
-│   │   ├── kafka-cluster.yaml
-│   │   └── kafka-topics.yaml
+│   ├── kafka/                  # Kafka Cluster (KRaft mode)
 │   ├── databases/              # MySQL & PostgreSQL
-│   │   ├── kustomization.yaml
-│   │   ├── mysql-*.yaml
-│   │   └── postgres-*.yaml
 │   ├── kafka-connect/          # Debezium & JDBC Sink
-│   │   ├── kustomization.yaml
-│   │   ├── kafka-connect.yaml
-│   │   ├── mysql-source-connector.yaml
-│   │   └── postgres-sink-connector.yaml
 │   └── data-producer/          # Quarkus App Deployment
-│       ├── kustomization.yaml
-│       ├── buildconfig.yaml
-│       ├── configmap.yaml
-│       └── deployment.yaml
 ├── overlays/
 │   ├── dev/                    # Development overrides
-│   │   ├── kustomization.yaml
-│   │   └── namespace.yaml
 │   └── prod/                   # Production overrides
-│       ├── kustomization.yaml
-│       └── pvcs.yaml
 └── quarkus-data-producer/      # Quarkus source code
-    ├── pom.xml
-    └── src/
 ```
 
 ## Troubleshooting
@@ -251,7 +208,7 @@ amq-streams-cdc-demo/
 Check if the operator has the necessary permissions to pull images:
 
 ```bash
-oc get events -n amq-streams-cdc --sort-by='.lastTimestamp'
+oc get events -n amq-streams-cdc-dev --sort-by='.lastTimestamp'
 ```
 
 ### Connector not creating topics
@@ -259,7 +216,7 @@ oc get events -n amq-streams-cdc --sort-by='.lastTimestamp'
 Verify the Kafka cluster is ready:
 
 ```bash
-oc get kafka cdc-cluster -n amq-streams-cdc
+oc get kafka dev-cdc-cluster -n amq-streams-cdc-dev
 ```
 
 ### MySQL CDC not capturing changes
@@ -267,7 +224,7 @@ oc get kafka cdc-cluster -n amq-streams-cdc
 Ensure binary logging is enabled:
 
 ```bash
-oc exec -it deployment/mysql -n amq-streams-cdc -- \
+oc exec -it deployment/dev-mysql -n amq-streams-cdc-dev -- \
   mysql -u root -prootpassword -e "SHOW VARIABLES LIKE 'log_bin';"
 ```
 
@@ -276,20 +233,19 @@ oc exec -it deployment/mysql -n amq-streams-cdc -- \
 Check connector logs:
 
 ```bash
-oc logs -l strimzi.io/cluster=cdc-connect-cluster -n amq-streams-cdc -c connect
+oc logs -l strimzi.io/cluster=dev-cdc-connect-cluster -n amq-streams-cdc-dev -c connect
 ```
 
 ## Cleanup
 
 ```bash
-# Delete all resources
-oc delete -k overlays/prod  # or overlays/dev
+# Delete dev environment
+oc delete -k overlays/dev
 
 # Or delete the namespace entirely
-oc delete namespace amq-streams-cdc
+oc delete namespace amq-streams-cdc-dev
 ```
 
 ## License
 
 Apache License 2.0
-

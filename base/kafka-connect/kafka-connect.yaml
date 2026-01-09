@@ -8,7 +8,7 @@ metadata:
   annotations:
     strimzi.io/use-connector-resources: "true"
 spec:
-  version: 3.7.0
+  version: 4.0.0
   replicas: 1
   bootstrapServers: cdc-cluster-kafka-bootstrap:9092
   config:
@@ -39,10 +39,11 @@ spec:
         artifacts:
           - type: zip
             url: https://maven.repository.redhat.com/ga/io/debezium/debezium-connector-mysql/2.5.4.Final-redhat-00001/debezium-connector-mysql-2.5.4.Final-redhat-00001-plugin.zip
-      - name: camel-jdbc-connector
+      - name: jdbc-sink-connector
         artifacts:
+          # Using Confluent JDBC sink connector from Maven Central
           - type: zip
-            url: https://maven.repository.redhat.com/ga/org/apache/camel/kafkaconnector/camel-jdbc-sink-kafka-connector/4.4.2.redhat-00006/camel-jdbc-sink-kafka-connector-4.4.2.redhat-00006-package.zip
+            url: https://d2p6pa21dvn84.cloudfront.net/api/plugins/confluentinc/kafka-connect-jdbc/versions/10.7.6/confluentinc-kafka-connect-jdbc-10.7.6.zip
       - name: jdbc-postgres-driver
         artifacts:
           - type: jar

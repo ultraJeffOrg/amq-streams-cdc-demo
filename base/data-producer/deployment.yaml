@@ -31,7 +31,34 @@ spec:
               name: http
               protocol: TCP
           env:
-            # Database connection from ConfigMap
+            # MySQL connection settings - define BEFORE they're referenced
+            - name: MYSQL_HOST
+              valueFrom:
+                configMapKeyRef:
+                  name: data-producer-config
+                  key: mysql.host
+            - name: MYSQL_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: data-producer-config
+                  key: mysql.port
+            - name: MYSQL_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: data-producer-config
+                  key: mysql.database
+            # MySQL credentials from secret
+            - name: QUARKUS_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-credentials
+                  key: MYSQL_USER
+            - name: QUARKUS_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-credentials
+                  key: MYSQL_PASSWORD
+            # Database connection URL - uses vars defined above
             - name: QUARKUS_DATASOURCE_JDBC_URL
               value: "jdbc:mysql://$(MYSQL_HOST):$(MYSQL_PORT)/$(MYSQL_DATABASE)"
             # Producer configuration
@@ -45,11 +72,6 @@ spec:
                 configMapKeyRef:
                   name: data-producer-config
                   key: producer.interval
-          envFrom:
-            - configMapRef:
-                name: data-producer-config
-            - secretRef:
-                name: mysql-credentials
           resources:
             requests:
               memory: 256Mi

@@ -9,14 +9,20 @@ resources:
 namePrefix: dev-
 
 patches:
-  # Reduce Kafka replicas for dev environment
+  # Reduce Kafka node pool replicas for dev environment and fix cluster label
   - patch: |-
       - op: replace
-        path: /spec/kafka/replicas
+        path: /spec/replicas
         value: 1
       - op: replace
-        path: /spec/zookeeper/replicas
-        value: 1
+        path: /metadata/labels/strimzi.io~1cluster
+        value: dev-cdc-cluster
+    target:
+      kind: KafkaNodePool
+      name: combined
+
+  # Reduce replication factors for single-node dev cluster
+  - patch: |-
       - op: replace
         path: /spec/kafka/config/offsets.topic.replication.factor
         value: 1
@@ -36,11 +42,14 @@ patches:
       kind: Kafka
       name: cdc-cluster
   
-  # Faster data generation for dev
+  # Faster data generation for dev + fix MySQL hostname for prefixed service
   - patch: |-
       - op: replace
         path: /data/producer.interval
         value: "30s"
+      - op: replace
+        path: /data/mysql.host
+        value: "dev-mysql"
     target:
       kind: ConfigMap
       name: data-producer-config
@@ -70,6 +79,56 @@ patches:
     target:
       kind: BuildConfig
       name: data-producer
+
+  # Fix KafkaConnect bootstrap servers and image for dev namespace
+  - patch: |-
+      - op: replace
+        path: /spec/bootstrapServers
+        value: "dev-cdc-cluster-kafka-bootstrap:9092"
+      - op: replace
+        path: /spec/config/config.storage.replication.factor
+        value: 1
+      - op: replace
+        path: /spec/config/offset.storage.replication.factor
+        value: 1
+      - op: replace
+        path: /spec/config/status.storage.replication.factor
+        value: 1
+      - op: replace
+        path: /spec/build/output/image
+        value: "image-registry.openshift-image-registry.svc:5000/amq-streams-cdc-dev/cdc-connect:latest"
+    target:
+      kind: KafkaConnect
+      name: cdc-connect-cluster
+
+  # Fix KafkaConnector cluster references
+  - patch: |-
+      - op: replace
+        path: /metadata/labels/strimzi.io~1cluster
+        value: "dev-cdc-connect-cluster"
+    target:
+      kind: KafkaConnector
+
+  # Fix MySQL source connector for dev environment
+  - patch: |-
+      - op: replace
+        path: /spec/config/database.hostname
+        value: "dev-mysql"
+      - op: replace
+        path: /spec/config/schema.history.internal.kafka.bootstrap.servers
+        value: "dev-cdc-cluster-kafka-bootstrap:9092"
+    target:
+      kind: KafkaConnector
+      name: mysql-source-connector
+
+  # Fix PostgreSQL sink connector for dev environment
+  - patch: |-
+      - op: replace
+        path: /spec/config/connection.url
+        value: "jdbc:postgresql://dev-postgres:5432/inventory"
+    target:
+      kind: KafkaConnector
+      name: postgres-sink-connector
 
 labels:
   - pairs:

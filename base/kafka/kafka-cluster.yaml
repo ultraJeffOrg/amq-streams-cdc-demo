@@ -1,14 +1,39 @@
 apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaNodePool
+metadata:
+  name: combined
+  namespace: amq-streams-cdc
+  labels:
+    strimzi.io/cluster: cdc-cluster
+    app.kubernetes.io/part-of: amq-streams-cdc-demo
+spec:
+  replicas: 3
+  roles:
+    - controller
+    - broker
+  storage:
+    type: ephemeral
+  resources:
+    requests:
+      memory: 1Gi
+      cpu: 500m
+    limits:
+      memory: 2Gi
+      cpu: 1000m
+---
+apiVersion: kafka.strimzi.io/v1beta2
 kind: Kafka
 metadata:
   name: cdc-cluster
   namespace: amq-streams-cdc
   labels:
     app.kubernetes.io/part-of: amq-streams-cdc-demo
+  annotations:
+    strimzi.io/kraft: enabled
+    strimzi.io/node-pools: enabled
 spec:
   kafka:
-    version: 3.7.0
-    replicas: 3
+    version: 4.0.0
     listeners:
       - name: plain
         port: 9092
@@ -24,28 +49,6 @@ spec:
       transaction.state.log.min.isr: 2
       default.replication.factor: 3
       min.insync.replicas: 2
-      inter.broker.protocol.version: "3.7"
-    storage:
-      type: ephemeral
-    resources:
-      requests:
-        memory: 1Gi
-        cpu: 500m
-      limits:
-        memory: 2Gi
-        cpu: 1000m
-  zookeeper:
-    replicas: 3
-    storage:
-      type: ephemeral
-    resources:
-      requests:
-        memory: 512Mi
-        cpu: 250m
-      limits:
-        memory: 1Gi
-        cpu: 500m
   entityOperator:
     topicOperator: {}
     userOperator: {}
-

@@ -7,28 +7,39 @@ metadata:
     strimzi.io/cluster: cdc-connect-cluster
     app.kubernetes.io/part-of: amq-streams-cdc-demo
 spec:
-  class: org.apache.camel.kafkaconnector.cameljdbcsink.CamelJdbcsinkSinkConnector
+  class: io.confluent.connect.jdbc.JdbcSinkConnector
   tasksMax: 1
   config:
     # Topics to consume
     topics: dbserver1.inventory.products
     
-    # Camel JDBC Sink configuration
-    camel.kamelet.jdbc-sink.serverName: postgres
-    camel.kamelet.jdbc-sink.serverPort: "5432"
-    camel.kamelet.jdbc-sink.username: postgres
-    camel.kamelet.jdbc-sink.password: postgres
-    camel.kamelet.jdbc-sink.databaseName: inventory
-    camel.kamelet.jdbc-sink.query: "INSERT INTO products (id, name, description, weight, created_at, updated_at) VALUES (:#id, :#name, :#description, :#weight, :#created_at, :#updated_at) ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description, weight = EXCLUDED.weight, updated_at = EXCLUDED.updated_at"
+    # JDBC connection configuration
+    connection.url: "jdbc:postgresql://postgres:5432/inventory"
+    connection.user: "postgres"
+    connection.password: "postgres"
     
-    # Converters
+    # Insert mode
+    insert.mode: "upsert"
+    pk.mode: "record_key"
+    pk.fields: "id"
+    
+    # Table settings
+    table.name.format: "products"
+    auto.create: "false"
+    auto.evolve: "false"
+    
+    # Converters - Debezium uses JSON with schemas
     key.converter: org.apache.kafka.connect.json.JsonConverter
     key.converter.schemas.enable: true
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: true
     
+    # Transforms to extract the 'after' field from Debezium envelope
+    transforms: "unwrap"
+    transforms.unwrap.type: "io.debezium.transforms.ExtractNewRecordState"
+    transforms.unwrap.drop.tombstones: "true"
+    
     # Error handling
     errors.tolerance: all
     errors.log.enable: true
     errors.log.include.messages: true
-

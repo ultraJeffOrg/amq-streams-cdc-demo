@@ -4,6 +4,7 @@ metadata:
   name: amq-streams-operatorgroup
   namespace: amq-streams-cdc
 spec:
-  targetNamespaces:
-    - amq-streams-cdc
+  # Empty selector watches the operator's own namespace only
+  # This avoids hardcoding namespace names that break with kustomize overlays
+  upgradeStrategy: Default
 

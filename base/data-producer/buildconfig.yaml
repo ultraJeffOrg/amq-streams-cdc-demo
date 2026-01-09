@@ -21,7 +21,7 @@ spec:
       from:
         kind: ImageStreamTag
         namespace: openshift
-        name: ubi8-openjdk-17:1.18
+        name: ubi8-openjdk-21:1.18
       env:
         - name: MAVEN_ARGS
           value: "package -DskipTests -Dquarkus.package.jar.type=uber-jar"

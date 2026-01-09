@@ -4,6 +4,7 @@ kind: Kustomization
 namespace: amq-streams-cdc-dev
 
 resources:
+  - namespace.yaml
   - ../../base
 
 namePrefix: dev-
@@ -53,6 +54,26 @@ patches:
     target:
       kind: KafkaTopic
 
-commonLabels:
-  environment: dev
+  # Fix ImageStream trigger to use prefixed name
+  - patch: |-
+      - op: replace
+        path: /metadata/annotations/image.openshift.io~1triggers
+        value: '[{"from":{"kind":"ImageStreamTag","name":"dev-data-producer:latest"},"fieldPath":"spec.template.spec.containers[?(@.name==\"data-producer\")].image"}]'
+    target:
+      kind: Deployment
+      name: data-producer
+
+  # Fix BuildConfig output to use prefixed ImageStream name  
+  - patch: |-
+      - op: replace
+        path: /spec/output/to/name
+        value: "dev-data-producer:latest"
+    target:
+      kind: BuildConfig
+      name: data-producer
+
+labels:
+  - pairs:
+      environment: dev
+    includeSelectors: false
 

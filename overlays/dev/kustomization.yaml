@@ -4,7 +4,6 @@ kind: Kustomization
 namespace: amq-streams-cdc-dev
 
 resources:
-  - namespace.yaml
   - ../../base
 
 namePrefix: dev-

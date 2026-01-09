@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: data-producer-config
+  namespace: amq-streams-cdc
+  labels:
+    app: data-producer
+    app.kubernetes.io/part-of: amq-streams-cdc-demo
+    app.kubernetes.io/component: data-producer
+data:
+  # MySQL connection settings
+  mysql.host: mysql
+  mysql.port: "3306"
+  mysql.database: inventory
+  
+  # Producer settings
+  producer.enabled: "true"
+  producer.interval: "60s"
+

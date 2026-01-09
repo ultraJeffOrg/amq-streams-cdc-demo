@@ -1,0 +1,44 @@
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: data-producer
+  namespace: amq-streams-cdc
+  labels:
+    app: data-producer
+    app.kubernetes.io/part-of: amq-streams-cdc-demo
+    app.kubernetes.io/component: data-producer
+spec:
+  source:
+    type: Git
+    git:
+      # Update this URL to your actual Git repository
+      uri: https://github.com/ultraJeffOrg/amq-streams-cdc-demo.git
+      ref: main
+    contextDir: quarkus-data-producer
+  strategy:
+    type: Source
+    sourceStrategy:
+      from:
+        kind: ImageStreamTag
+        namespace: openshift
+        name: ubi8-openjdk-17:1.18
+      env:
+        - name: MAVEN_ARGS
+          value: "package -DskipTests -Dquarkus.package.jar.type=uber-jar"
+  output:
+    to:
+      kind: ImageStreamTag
+      name: data-producer:latest
+  triggers:
+    - type: ConfigChange
+    - type: ImageChange
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: data-producer
+  namespace: amq-streams-cdc
+  labels:
+    app: data-producer
+    app.kubernetes.io/part-of: amq-streams-cdc-demo
+

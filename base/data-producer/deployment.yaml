@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-producer
+  namespace: amq-streams-cdc
+  labels:
+    app: data-producer
+    app.kubernetes.io/part-of: amq-streams-cdc-demo
+    app.kubernetes.io/component: data-producer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: data-producer
+  template:
+    metadata:
+      labels:
+        app: data-producer
+        app.kubernetes.io/part-of: amq-streams-cdc-demo
+    spec:
+      containers:
+        - name: data-producer
+          image: image-registry.openshift-image-registry.svc:5000/amq-streams-cdc/data-producer:latest
+          ports:
+            - containerPort: 8080
+              name: http
+              protocol: TCP
+          env:
+            # Database connection from ConfigMap
+            - name: QUARKUS_DATASOURCE_JDBC_URL
+              value: "jdbc:mysql://$(MYSQL_HOST):$(MYSQL_PORT)/$(MYSQL_DATABASE)"
+            # Producer configuration
+            - name: PRODUCER_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: data-producer-config
+                  key: producer.enabled
+            - name: PRODUCER_INTERVAL
+              valueFrom:
+                configMapKeyRef:
+                  name: data-producer-config
+                  key: producer.interval
+          envFrom:
+            - configMapRef:
+                name: data-producer-config
+            - secretRef:
+                name: mysql-credentials
+          resources:
+            requests:
+              memory: 256Mi
+              cpu: 100m
+            limits:
+              memory: 512Mi
+              cpu: 250m
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: 8080
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: data-producer
+  namespace: amq-streams-cdc
+  labels:
+    app: data-producer
+    app.kubernetes.io/part-of: amq-streams-cdc-demo
+spec:
+  ports:
+    - port: 8080
+      targetPort: 8080
+      name: http
+  selector:
+    app: data-producer
+  type: ClusterIP
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: data-producer
+  namespace: amq-streams-cdc
+  labels:
+    app: data-producer
+    app.kubernetes.io/part-of: amq-streams-cdc-demo
+spec:
+  to:
+    kind: Service
+    name: data-producer
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+

@@ -1,0 +1,102 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: amq-streams-cdc
+  labels:
+    app: mysql
+    app.kubernetes.io/part-of: amq-streams-cdc-demo
+    app.kubernetes.io/component: mysql
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        app: mysql
+        app.kubernetes.io/part-of: amq-streams-cdc-demo
+    spec:
+      containers:
+        - name: mysql
+          image: registry.redhat.io/rhel8/mysql-80:latest
+          ports:
+            - containerPort: 3306
+              name: mysql
+          envFrom:
+            - secretRef:
+                name: mysql-credentials
+          volumeMounts:
+            - name: mysql-config
+              mountPath: /etc/my.cnf.d/custom.cnf
+              subPath: my.cnf
+            - name: mysql-init
+              mountPath: /docker-entrypoint-initdb.d/init.sql
+              subPath: init.sql
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+          resources:
+            requests:
+              memory: 512Mi
+              cpu: 250m
+            limits:
+              memory: 1Gi
+              cpu: 500m
+          livenessProbe:
+            exec:
+              command:
+                - mysqladmin
+                - ping
+                - -h
+                - localhost
+            initialDelaySeconds: 30
+            periodSeconds: 10
+          readinessProbe:
+            exec:
+              command:
+                - mysql
+                - -h
+                - localhost
+                - -u
+                - root
+                - -p$(MYSQL_ROOT_PASSWORD)
+                - -e
+                - "SELECT 1"
+            initialDelaySeconds: 5
+            periodSeconds: 5
+      volumes:
+        - name: mysql-config
+          configMap:
+            name: mysql-config
+            items:
+              - key: my.cnf
+                path: my.cnf
+        - name: mysql-init
+          configMap:
+            name: mysql-config
+            items:
+              - key: init.sql
+                path: init.sql
+        - name: mysql-data
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: amq-streams-cdc
+  labels:
+    app: mysql
+    app.kubernetes.io/part-of: amq-streams-cdc-demo
+spec:
+  ports:
+    - port: 3306
+      targetPort: 3306
+      name: mysql
+  selector:
+    app: mysql
+  type: ClusterIP
+

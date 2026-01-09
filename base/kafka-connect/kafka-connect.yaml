@@ -1,0 +1,50 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnect
+metadata:
+  name: cdc-connect-cluster
+  namespace: amq-streams-cdc
+  labels:
+    app.kubernetes.io/part-of: amq-streams-cdc-demo
+  annotations:
+    strimzi.io/use-connector-resources: "true"
+spec:
+  version: 3.7.0
+  replicas: 1
+  bootstrapServers: cdc-cluster-kafka-bootstrap:9092
+  config:
+    group.id: cdc-connect-cluster
+    offset.storage.topic: connect-cluster-offsets
+    config.storage.topic: connect-cluster-configs
+    status.storage.topic: connect-cluster-status
+    config.storage.replication.factor: 3
+    offset.storage.replication.factor: 3
+    status.storage.replication.factor: 3
+    key.converter: org.apache.kafka.connect.json.JsonConverter
+    value.converter: org.apache.kafka.connect.json.JsonConverter
+    key.converter.schemas.enable: true
+    value.converter.schemas.enable: true
+  resources:
+    requests:
+      memory: 1Gi
+      cpu: 500m
+    limits:
+      memory: 2Gi
+      cpu: 1000m
+  build:
+    output:
+      type: docker
+      image: image-registry.openshift-image-registry.svc:5000/amq-streams-cdc/cdc-connect:latest
+    plugins:
+      - name: debezium-mysql-connector
+        artifacts:
+          - type: zip
+            url: https://maven.repository.redhat.com/ga/io/debezium/debezium-connector-mysql/2.5.4.Final-redhat-00001/debezium-connector-mysql-2.5.4.Final-redhat-00001-plugin.zip
+      - name: camel-jdbc-connector
+        artifacts:
+          - type: zip
+            url: https://maven.repository.redhat.com/ga/org/apache/camel/kafkaconnector/camel-jdbc-sink-kafka-connector/4.4.2.redhat-00006/camel-jdbc-sink-kafka-connector-4.4.2.redhat-00006-package.zip
+      - name: jdbc-postgres-driver
+        artifacts:
+          - type: jar
+            url: https://jdbc.postgresql.org/download/postgresql-42.7.4.jar
+

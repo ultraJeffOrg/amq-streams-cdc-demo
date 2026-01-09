@@ -1,0 +1,18 @@
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Quarkus
+quarkus-data-producer/target/
+quarkus-data-producer/.quarkus/
+
+# Temporary files
+*.swp
+*.swo
+*~
+

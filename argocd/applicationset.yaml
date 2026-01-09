@@ -1,0 +1,39 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: amq-streams-cdc-demo
+  namespace: openshift-gitops
+spec:
+  generators:
+    - list:
+        elements:
+          - env: dev
+            namespace: amq-streams-cdc-dev
+            path: overlays/dev
+          - env: prod
+            namespace: amq-streams-cdc
+            path: overlays/prod
+  template:
+    metadata:
+      name: 'amq-streams-cdc-{{env}}'
+      labels:
+        app.kubernetes.io/part-of: amq-streams-cdc-demo
+        environment: '{{env}}'
+    spec:
+      project: default
+      source:
+        # Update this to your Git repository URL
+        repoURL: https://github.com/ultraJeffOrg/amq-streams-cdc-demo.git
+        targetRevision: main
+        path: '{{path}}'
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: '{{namespace}}'
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true
+          - PruneLast=true
+

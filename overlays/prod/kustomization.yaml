@@ -1,0 +1,82 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: amq-streams-cdc
+
+resources:
+  - ../../base
+  - pvcs.yaml
+
+patches:
+  # Use persistent storage in production
+  - patch: |-
+      - op: replace
+        path: /spec/kafka/storage
+        value:
+          type: persistent-claim
+          size: 50Gi
+          deleteClaim: false
+      - op: replace
+        path: /spec/zookeeper/storage
+        value:
+          type: persistent-claim
+          size: 10Gi
+          deleteClaim: false
+    target:
+      kind: Kafka
+      name: cdc-cluster
+
+  # Increase resources for production
+  - patch: |-
+      - op: replace
+        path: /spec/kafka/resources/requests/memory
+        value: 2Gi
+      - op: replace
+        path: /spec/kafka/resources/limits/memory
+        value: 4Gi
+      - op: replace
+        path: /spec/kafka/resources/requests/cpu
+        value: 1000m
+      - op: replace
+        path: /spec/kafka/resources/limits/cpu
+        value: 2000m
+    target:
+      kind: Kafka
+      name: cdc-cluster
+
+  # Production data generation rate (slower)
+  - patch: |-
+      - op: replace
+        path: /data/producer.interval
+        value: "60s"
+    target:
+      kind: ConfigMap
+      name: data-producer-config
+
+  # Add PVC for MySQL
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/volumes/2
+        value:
+          name: mysql-data
+          persistentVolumeClaim:
+            claimName: mysql-data
+    target:
+      kind: Deployment
+      name: mysql
+
+  # Add PVC for PostgreSQL
+  - patch: |-
+      - op: replace
+        path: /spec/template/spec/volumes/1
+        value:
+          name: postgres-data
+          persistentVolumeClaim:
+            claimName: postgres-data
+    target:
+      kind: Deployment
+      name: postgres
+
+commonLabels:
+  environment: prod
+

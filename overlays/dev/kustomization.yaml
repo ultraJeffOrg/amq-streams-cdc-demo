@@ -1,0 +1,58 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: amq-streams-cdc-dev
+
+resources:
+  - ../../base
+
+namePrefix: dev-
+
+patches:
+  # Reduce Kafka replicas for dev environment
+  - patch: |-
+      - op: replace
+        path: /spec/kafka/replicas
+        value: 1
+      - op: replace
+        path: /spec/zookeeper/replicas
+        value: 1
+      - op: replace
+        path: /spec/kafka/config/offsets.topic.replication.factor
+        value: 1
+      - op: replace
+        path: /spec/kafka/config/transaction.state.log.replication.factor
+        value: 1
+      - op: replace
+        path: /spec/kafka/config/transaction.state.log.min.isr
+        value: 1
+      - op: replace
+        path: /spec/kafka/config/default.replication.factor
+        value: 1
+      - op: replace
+        path: /spec/kafka/config/min.insync.replicas
+        value: 1
+    target:
+      kind: Kafka
+      name: cdc-cluster
+  
+  # Faster data generation for dev
+  - patch: |-
+      - op: replace
+        path: /data/producer.interval
+        value: "30s"
+    target:
+      kind: ConfigMap
+      name: data-producer-config
+
+  # Lower replication for topics in dev
+  - patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1
+    target:
+      kind: KafkaTopic
+
+commonLabels:
+  environment: dev
+

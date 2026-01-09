@@ -1,0 +1,38 @@
+apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaConnector
+metadata:
+  name: mysql-source-connector
+  namespace: amq-streams-cdc
+  labels:
+    strimzi.io/cluster: cdc-connect-cluster
+    app.kubernetes.io/part-of: amq-streams-cdc-demo
+spec:
+  class: io.debezium.connector.mysql.MySqlConnector
+  tasksMax: 1
+  config:
+    # Database connection
+    database.hostname: mysql
+    database.port: 3306
+    database.user: debezium
+    database.password: dbz
+    database.server.id: 184054
+    
+    # Topic routing
+    topic.prefix: dbserver1
+    database.include.list: inventory
+    table.include.list: inventory.products
+    
+    # Schema history
+    schema.history.internal.kafka.bootstrap.servers: cdc-cluster-kafka-bootstrap:9092
+    schema.history.internal.kafka.topic: schema-changes.inventory
+    
+    # Snapshot configuration
+    snapshot.mode: initial
+    
+    # Transforms to flatten the message
+    transforms: unwrap
+    transforms.unwrap.type: io.debezium.transforms.ExtractNewRecordState
+    transforms.unwrap.drop.tombstones: false
+    transforms.unwrap.delete.handling.mode: rewrite
+    transforms.unwrap.add.fields: op,table,source.ts_ms
+

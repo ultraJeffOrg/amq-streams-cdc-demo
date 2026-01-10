@@ -7,37 +7,34 @@ metadata:
     strimzi.io/cluster: cdc-connect-cluster
     app.kubernetes.io/part-of: amq-streams-cdc-demo
 spec:
-  class: io.confluent.connect.jdbc.JdbcSinkConnector
+  # Debezium JDBC Sink Connector (Red Hat build)
+  class: io.debezium.connector.jdbc.JdbcSinkConnector
   tasksMax: 1
   config:
-    # Topics to consume
+    # Topics to consume (from Debezium MySQL source)
     topics: dbserver1.inventory.products
     
     # JDBC connection configuration
     connection.url: "jdbc:postgresql://postgres:5432/inventory"
-    connection.user: "postgres"
-    connection.password: "postgres"
+    connection.username: "postgres"
+    connection.password: "postgres" # notsecret - demo value
     
-    # Insert mode
+    # Insert mode - upsert to handle updates
     insert.mode: "upsert"
-    pk.mode: "record_key"
-    pk.fields: "id"
+    primary.key.mode: "record_key"
+    primary.key.fields: "id"
     
-    # Table settings
+    # Table naming
     table.name.format: "products"
-    auto.create: "false"
-    auto.evolve: "false"
     
-    # Converters - Debezium uses JSON with schemas
+    # Schema evolution
+    schema.evolution: "basic"
+    
+    # Converters - match the source connector
     key.converter: org.apache.kafka.connect.json.JsonConverter
     key.converter.schemas.enable: true
     value.converter: org.apache.kafka.connect.json.JsonConverter
     value.converter.schemas.enable: true
-    
-    # Transforms to extract the 'after' field from Debezium envelope
-    transforms: "unwrap"
-    transforms.unwrap.type: "io.debezium.transforms.ExtractNewRecordState"
-    transforms.unwrap.drop.tombstones: "true"
     
     # Error handling
     errors.tolerance: all

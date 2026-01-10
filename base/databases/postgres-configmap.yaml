@@ -8,6 +8,12 @@ metadata:
     app.kubernetes.io/component: postgres
 data:
   init.sql: |
+    -- Create the inventory database
+    SELECT 'CREATE DATABASE inventory' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'inventory')\gexec
+    
+    -- Connect to inventory and create the table
+    \c inventory
+    
     -- Create the target table for CDC data
     CREATE TABLE IF NOT EXISTS products (
         id INTEGER PRIMARY KEY,

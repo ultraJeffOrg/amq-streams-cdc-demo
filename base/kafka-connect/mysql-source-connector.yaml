@@ -14,7 +14,7 @@ spec:
     database.hostname: mysql
     database.port: 3306
     database.user: debezium
-    database.password: dbz
+    database.password: dbz # notsecret - demo value
     database.server.id: 184054
     
     # Topic routing

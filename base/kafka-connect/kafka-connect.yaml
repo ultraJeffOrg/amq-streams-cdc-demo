@@ -37,15 +37,12 @@ spec:
     plugins:
       - name: debezium-mysql-connector
         artifacts:
+          # Red Hat build of Debezium MySQL Connector (v3.2.5 for Kafka 4.0 compatibility)
           - type: zip
-            url: https://maven.repository.redhat.com/ga/io/debezium/debezium-connector-mysql/2.5.4.Final-redhat-00001/debezium-connector-mysql-2.5.4.Final-redhat-00001-plugin.zip
-      - name: jdbc-sink-connector
+            url: https://maven.repository.redhat.com/ga/io/debezium/debezium-connector-mysql/3.2.5.Final-redhat-00001/debezium-connector-mysql-3.2.5.Final-redhat-00001-plugin.zip
+      - name: debezium-jdbc-sink-connector
         artifacts:
-          # Using Confluent JDBC sink connector from Maven Central
+          # Red Hat build of Debezium JDBC Sink Connector (v3.2.5 - includes PostgreSQL driver)
           - type: zip
-            url: https://d2p6pa21dvn84.cloudfront.net/api/plugins/confluentinc/kafka-connect-jdbc/versions/10.7.6/confluentinc-kafka-connect-jdbc-10.7.6.zip
-      - name: jdbc-postgres-driver
-        artifacts:
-          - type: jar
-            url: https://jdbc.postgresql.org/download/postgresql-42.7.4.jar
+            url: https://maven.repository.redhat.com/ga/io/debezium/debezium-connector-jdbc/3.2.5.Final-redhat-00001/debezium-connector-jdbc-3.2.5.Final-redhat-00001-plugin.zip
 
